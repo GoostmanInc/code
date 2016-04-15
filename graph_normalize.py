@@ -1,118 +1,163 @@
-
+import pprint
+import math
 
 class Node:
-    def __init__(self,name):
-        self.name=name
-        self.auth_score=0
-        self.hub_score=1
-        self.HITS_score=0
-        
-class Graph:
-    def __init__(self):
-        self.structure={}
-        self.threshold=0
-        self.window=2
-        self.nodeList=[]
-    def find(self,name):
-        #print("NAME:",name)
-        nodeList=self.nodeList
-        for node in nodeList:
-            #print(node.name)
-            if name==node.name:
-                #print("FOUND")
-                return node
-        return "null"
-    def set_threshold(self,thresh):
-        self.threshold=thresh
-    def set_window(self,win):
-        self.window=win
-    def set_structure(self,wordlist):
-        structure=self.structure
-        window=self.window
-        nodeList=self.nodeList
-        for sentence in wordlist:
-            for index in range(len(sentence)):
-                curr_word=sentence[index]
-                next_words=sentence[index+1:index+window]
-                if curr_word not in structure:
-                    node=Node(curr_word)
-                    nodeList.append(node)
-                    structure[curr_word]={}
-                    for word in next_words:
-                        structure[curr_word][word]=1
-                else:
-                    for word in next_words:
-                        if word not in structure[curr_word]:
-                            structure[curr_word][word]=1
-        print(structure)
-    def calculate_scores(self):
-        min_delta=0
-        max_iterations=100
-        structure=self.structure
-        nodeList=self.nodeList
-        while max_iterations>0:
-            max_iterations-=1
-            print("AUTH: ")          
-            prev_auth=[]
-            for each in nodeList:
-                prev_auth.append(each.auth_score)
-            for out_keys in structure:
-                #print("outkeys",out_keys)
-                for in_keys in structure[out_keys]:
-                    #print(in_keys)
-                    curr_node=self.find(in_keys)
-                    #print(type(curr_node))
-                    curr_node.auth_score+=self.find(out_keys).hub_score
-                    #print("CURRENT: ",curr_node.name,curr_node.auth_score)
-            flag=0
-            total=0
-            for index in range(len(nodeList)):
-                nodeList[index].auth_score-=prev_auth[index]
-                total+=nodeList[index].auth_score
-            for each in nodeList:
-                each.auth_score/=total
-            print("HUB: ")
-            prev_hub=[]
-            for each in nodeList:
-                prev_hub.append(each.hub_score)
-            for out_keys in structure:
-                for in_keys in structure[out_keys]:
-                    curr_node=self.find(out_keys)
-                    curr_node.hub_score+=self.find(in_keys).auth_score
-                    #print("CURRENT: ",curr_node.name,curr_node.hub_score)
-            flag=0
-            total=0
-            for index in range(len(nodeList)):
-                nodeList[index].hub_score-=prev_hub[index]
-                total+=nodeList[index].hub_score
-            for each in nodeList:
-                each.auth_score/=total
-            delta=0
-            for index in range(len(nodeList)):
-                delta+=abs(prev_hub[index] - nodeList[index].hub_score)
-            print("Delta:",delta)
-            if delta==min_delta:
-                for each in nodeList:
-                    print(each.name," ",each.auth_score," ",each.hub_score)
-                return
-            #raw_input()
-            
-    def HITS(self):
-        nodeList=self.nodeList
-        for each in nodeList:
-            each.HITS_score=(each.hub_score+each.auth_score)/2
-        print("HITS")
-        for each in nodeList:
-                print(each.name," ",each.HITS_score)
-    def sort_nodes(self):
-        nodeList=self.nodeList
-        nodeList.sort(key=lambda x: x.HITS_score, reverse=True)
-        for each in nodeList:
-                print(each.name," ",each.HITS_score)
+	def __init__(self,name):
+		self.name=name
+		self.auth_score=1
+		self.hub_score=1
+		self.HITS_score=0
 
-#TESTING...
+	def __repr__(self):
+		return self.name
+
+	def __eq__(self, other):
+		return self.name == other.name
+
+	def __hash__(self):
+		return hash(self.name)
+
+	def __cmp__(self, other):
+		if self.HITS_score > other.HITS_score:
+			return 1
+		elif self.HITS_score < other.HITS_score:
+			return -1
+		else:
+			return 0
+
+
+class Graph:
+	def __init__(self):
+		self.structure={}
+		self.threshold=0
+		self.window=2
+		self.nodeList=[]
+		self.nodeHash = {}
+
+	def set_threshold(self,thresh):
+		self.threshold=thresh
+
+	def set_window(self,win):
+		self.window=win
+
+	def printStructure(self):
+		pprint.pprint(self.structure)
+
+	def find(self,curr_node):
+		for obj in self.structure:
+			if obj==curr_node:
+				return True
+		return False
+
+	def printNodes(self):
+		for key in self.structure:
+			print "\ntext ",key.name
+			print "hub_score ",key.hub_score
+			print "auth_score ",key.auth_score
+			print("Inside:")
+			for key2 in self.structure[key]:
+				print "text ",key2.name
+				print "hub_score ",key2.hub_score
+				print "auth_score ",key2.auth_score
+
+	def setNode(self,word):
+		if word in self.nodeHash:
+			node = self.nodeHash[word]
+		else:
+			node = Node(word)
+			self.nodeHash[word] = node
+
+		return node
+
+	def set_structure(self,wordlist):
+		structure=self.structure
+		window=self.window
+		#nodeList=self.nodeList
+		for sentence in wordlist:
+			for index in range(len(sentence)):
+				curr_word=sentence[index]
+				next_words=sentence[index+1:index+window]
+
+				curr_node = self.setNode(curr_word)
+				#curr_node=Node(curr_word)
+				#print "current node ",curr_node
+				if(len(structure)==0):
+					#print "first time"
+					structure[curr_node]={}
+					for word in next_words:
+						next_node = self.setNode(word)
+						#next_node=Node(word)
+
+						structure[curr_node][next_node]=1
+				else:
+
+					if(self.find(curr_node)):
+						#print "present ",curr_node
+						for word in next_words:
+							#next_node=Node(word)
+							next_node = self.setNode(word)
+							structure[curr_node][next_node]=1
+
+					else:
+						structure[curr_node]={}
+						for word in next_words:
+							next_node = self.setNode(word)
+							#next_node=Node(word)
+							structure[curr_node][next_node]=1
+
+		self.printStructure()
+
+	def hubs_and_authorities(self):
+		for k in range(1):
+			norm = 0.0
+			#update all authority scores
+			for p in self.structure:
+				#print " p is ",p
+				p.auth_score = 0.0
+				incomingEdges=[]
+				for key in self.structure:
+					for innerkey in self.structure[key]:
+						if(innerkey.name==p.name):
+							incomingEdges.append(key)
+				#print " incomingEdges ",incomingEdges
+				for q in incomingEdges:
+					p.auth_score += q.hub_score
+				norm += math.pow(p.auth_score,2)
+			norm = math.sqrt(norm)
+			#normalize
+			for p in self.structure:
+				p.auth_score = p.auth_score / norm
+			norm = 0.0
+			#update git scores
+			for p in self.structure:
+				p.hub_score = 0.0
+				for r in self.structure[p]:
+					#print r, r.auth_score
+					p.hub_score += r.auth_score
+				norm += math.pow(p.hub_score,2)
+			norm = math.sqrt(norm)
+			#print "norm:",norm
+			for p in self.structure:
+				p.hub_score = p.hub_score / norm
+		print k
+		#self.printNodes()
+
+	def HITS(self):
+		for key in self.structure:
+			key.HITS_score=(key.hub_score+key.auth_score)/2
+		#print("HITS")
+		for key in self.structure:
+			print(key.name," ",key.HITS_score)
+	def sort_nodes(self):
+		#print self.structure.keys()
+		final_list = sorted(self.structure.keys())
+		print final_list
+		for each in final_list:
+			print each.name,each.HITS_score
+
+
 graph=Graph()
 graph.set_structure([["d1","d2"],["d1","d3"],["d2","d1"],["d2","d3"],["d3","d2"],["d3","d4"],["d4","d2"]])
-graph.calculate_scores()
+graph.hubs_and_authorities()
 graph.HITS()
 graph.sort_nodes()
